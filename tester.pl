@@ -4,7 +4,7 @@ use warnings;
 use lib qw(.);
 use flyingferret;
 
-my $input = "should I buy SC 2 when it comes out?";
+my $input = "should I buy a new car?";
 
 if ($ARGV[0]) {
    $input = join(' ', @ARGV);
