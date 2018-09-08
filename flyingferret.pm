@@ -31,31 +31,26 @@ BEGIN {
 #to a search uri can be added to this list.
 my %standard_links = (
    google => 'http://www.google.com/search?q=',
-   bing =>   'http://www.bing.com/search?q=',
-   imdb =>   'http://www.imdb.com/find?s=all&q=',
-   wiki =>   'http://en.wikipedia.org/wiki/',
-   alpha =>  'http://www.wolframalpha.com/input/?i=',
-   image =>  'http://www.google.com/images?q=',
+   bing   => 'http://www.bing.com/search?q=',
+   imdb   => 'http://www.imdb.com/find?s=all&q=',
+   wiki   => 'http://en.wikipedia.org/wiki/',
+   alpha  => 'http://www.wolframalpha.com/input/?i=',
+   image  => 'http://www.google.com/images?q=',
    gimage => 'http://www.google.com/images?q=',
    bimage => 'http://www.bing.com/images/search?q=',
+   imgur  => 'https://imgur.com/?q=',
+   giffy  => 'https://giphy.com/search/',
    amazon => 'http://www.amazon.com/s/ref=nb_sb_noss?url=search-alias%3Daps&field-keywords=',
-   ebay =>   'http://shop.ebay.com/?_nkw=',
+   ebay   => 'http://shop.ebay.com/?_nkw=',
+   lmgtfy => 'http://lmgtfy.com/?q=',
 );
 
 #If there is a special mobile link for a search in the standard links hash, you can
 #add that information here.  If a mobile link is asked for, and there isn't an entry
 #in this hash, it will use the link defined in the standard links hash.
 my %mobile_links = (
-   google => 'http://www.google.com/m/search?&q=',
-   bing =>   'http://m.bing.com/search/search.aspx?a=results&q=',
-   imdb =>   'http://m.imdb.com/find?q=',
-   wiki =>   'http://en.m.wikipedia.org/wiki/',
-   alpha =>  'http://m.wolframalpha.com/input/?i=',
-   image =>  'http://www.google.com/m/search?site=images&q=',
-   gimage => 'http://www.google.com/m/search?site=images&q=',
-   #bimage => 'http://www.bing.com/images/search?q=',
-   amazon => 'http://www.amazon.com/gp/aw/s/ref=is_box_/176-1354136-6347842?k=',
-   #ebay =>   'http://m.ebay.com/Pages/SearchResults.aspx?sflag=1&emvcc=0&sv=',
+   imdb   => 'http://m.imdb.com/find?q=',
+   alpha  => 'http://m.wolframalpha.com/input/?i=',
 );
 
 
@@ -94,19 +89,18 @@ sub transform {
    #first, look for standard links
    foreach my $k (keys %links) {
       if ($input =~ m{$k://}i) {
-         push (@retval, @{transform_link($input, $k, $links{$k})});
+         my @new_lines = @{transform_link($input, $k, $links{$k})};
+         if ($#new_lines >= 0) {
+            push (@retval, @new_lines);
+            if ($k eq 'lmgtfy') {
+               $lmgtfy_flag = 1;
+            }
+         }
       }
    }
    #Now look for the links that need a little special attention
    if ($input =~ m{xkcd://}i) {
       push (@retval, @{transform_xkcd($input)});
-   }
-   if ($input =~ m{lmgtfy://}i) {
-      my @new_lines = @{transform_link($input, 'lmgtfy', 'http://lmgtfy.com/?q=')};
-      if ($#new_lines >= 0) {
-         push (@retval, @new_lines);
-         $lmgtfy_flag = 1;
-      }
    }
    if ($input =~ m{trope://}i) {
       push (@retval, @{transform_trope($input)});
@@ -139,11 +133,9 @@ sub transform {
    }
    
    #add a nice message if all we've got is a lmgtfy flag
-   if ($lmgtfy_flag) {
-      if ($#retval == 0) {
-         push (@retval, 'You are not being automatically redirected since you '.
-                        'probably just want this link to give to someone else.');
-      }
+   if ($lmgtfy_flag && $#retval == 0) {
+      push (@retval, 'You are not being automatically redirected since you '.
+                     'probably just want this link to give to someone else.');
    }
    
    return \@retval;
