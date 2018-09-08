@@ -12,7 +12,7 @@ package flyingferret;
 #              The documentation for that bot can be found here:
 #              http://www.chiliahedron.com/ferret/
 #              
-# Revisions:   
+# Revisions:   August 8, 2018: Change or matching to be before dice rolling.
 #              
 ################################################################################
 use strict;
@@ -125,13 +125,13 @@ sub transform {
    if ($#retval >= 0) {
       #we're set, nothing to do here
    }
-   #check for rolls
-   elsif ($input =~ m{d\d}i) {   #matches digit, 'd', digit
-      push (@retval, @{transform_rolls($input)});
-   }
    #check for 'or'
    elsif ($input =~ m{\bor\b}i) {
       push (@retval, @{transform_or($input)});
+   }
+   #check for rolls
+   elsif ($input =~ m{d\d}i) {   #matches digit, 'd', digit
+      push (@retval, @{transform_rolls($input)});
    }
    #lastly, check for a question mark at the end of the line
    elsif ($input =~ m{\?\s*$}i) {
