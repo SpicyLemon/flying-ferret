@@ -1,5 +1,5 @@
 # flying-ferret
-A module is used to transform input into links, rolls, and decisions etc..
+A module is used to transform input into links, rolls, and decisions etc.. You can see it in action at http://flying-ferret.com
 
 ## flyingferret.pm
 This is the main module that contains all the magic.
