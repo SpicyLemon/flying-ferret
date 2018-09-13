@@ -483,19 +483,21 @@ sub transform_yes_no {
    
    my @retval = ();
    
-   my @possibilities = (
-      'Yes', 'Probably', 'Sure', 'Definitely',
-      'No',  'Absolutely not!', 'Nope',
-      'Maybe', 'Possibly', '42', 'Sort of',
+   my @positive_answers = ('Yes', 'Probably', 'Sure', 'Definitely');
+   my @negative_answers = ('No',  'Absolutely not!', 'Nope');
+   my @neutral_answers = ('Maybe', 'Possibly', 'Sort of');
+   my @silly_answers = (
+      'Rub your belly three times and ask again.',
+      'Light some candles and ask again.',
+      '42',
    );
    
-   if (int(rand(10)) == 1) {
-      #10% chance to add this one to the possibilities
-      push (@possibilities, 
-            'Rub your belly three times and ask again.',
-            'Light some candles and ask again.',
-      );
-   }
+   my @possibilities = (
+      (@positive_answers) x 10,
+      (@negative_answers) x 10,
+      (@neutral_answers) x 3,
+      (@silly_answers) x 1,
+   );
    
    if ($input =~ m{\?\s*$}) {
       if ($input =~ m{^(?:how|why|what|who|when|where)}i) {
