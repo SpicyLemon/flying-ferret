@@ -13,6 +13,9 @@ package flyingferret;
 #              http://www.chiliahedron.com/ferret/
 #              
 # Revisions:   August 8, 2018: Change or matching to be before dice rolling.
+#              September 11, 2018: Switch to use https where available.
+#                                  Have the xkcd link creator pay attention to the mobile flag
+#                                  Allow ,.. to be used as a replacement for ://
 #              
 ################################################################################
 use strict;
@@ -30,29 +33,32 @@ BEGIN {
 #Any searches that just need to be uri encoded and appended
 #to a search uri can be added to this list.
 my %standard_links = (
-   google => 'http://www.google.com/search?q=',
-   bing   => 'http://www.bing.com/search?q=',
-   imdb   => 'http://www.imdb.com/find?s=all&q=',
-   wiki   => 'http://en.wikipedia.org/wiki/',
-   alpha  => 'http://www.wolframalpha.com/input/?i=',
-   image  => 'http://www.google.com/images?q=',
-   gimage => 'http://www.google.com/images?q=',
-   bimage => 'http://www.bing.com/images/search?q=',
+   google => 'https://www.google.com/search?q=',
+   bing   => 'https://www.bing.com/search?q=',
+   imdb   => 'https://www.imdb.com/find?s=all&q=',
+   wiki   => 'https://en.wikipedia.org/wiki/',
+   alpha  => 'https://www.wolframalpha.com/input/?i=',
+   image  => 'https://www.google.com/images?q=',
+   gimage => 'https://www.google.com/images?q=',
+   bimage => 'https://www.bing.com/images/search?q=',
    imgur  => 'https://imgur.com/?q=',
    giffy  => 'https://giphy.com/search/',
-   amazon => 'http://www.amazon.com/s/ref=nb_sb_noss?url=search-alias%3Daps&field-keywords=',
-   ebay   => 'http://shop.ebay.com/?_nkw=',
-   lmgtfy => 'http://lmgtfy.com/?q=',
+   amazon => 'https://www.amazon.com/s/ref=nb_sb_noss?url=search-alias%3Daps&field-keywords=',
+   ebay   => 'https://shop.ebay.com/?_nkw=',
+   lmgtfy => 'https://lmgtfy.com/?q=',
 );
 
 #If there is a special mobile link for a search in the standard links hash, you can
 #add that information here.  If a mobile link is asked for, and there isn't an entry
 #in this hash, it will use the link defined in the standard links hash.
 my %mobile_links = (
-   imdb   => 'http://m.imdb.com/find?q=',
-   alpha  => 'http://m.wolframalpha.com/input/?i=',
+   imdb   => 'https://m.imdb.com/find?q=',
+   alpha  => 'https://m.wolframalpha.com/input/?i=',
 );
 
+#variable name is short for "link regex". 
+#This is used in the regexes that test to see if users want links created.
+my $lr = qr^(?:://|,\.\.)^;  
 
 
 ##############################################################
@@ -88,7 +94,7 @@ sub transform {
    
    #first, look for standard links
    foreach my $k (keys %links) {
-      if ($input =~ m{$k://}i) {
+      if ($input =~ m{$k$lr}i) {
          my @new_lines = @{transform_link($input, $k, $links{$k})};
          if ($#new_lines >= 0) {
             push (@retval, @new_lines);
@@ -99,19 +105,16 @@ sub transform {
       }
    }
    #Now look for the links that need a little special attention
-   if ($input =~ m{xkcd://}i) {
-      push (@retval, @{transform_xkcd($input)});
+   if ($input =~ m{xkcd$lr}i) {
+      push (@retval, @{transform_xkcd($input, $mobile_flag)});
    }
-   if ($input =~ m{trope://}i) {
+   if ($input =~ m{trope$lr}i) {
       push (@retval, @{transform_trope($input)});
    }
-   if ($input =~ m{bash://}i) {
+   if ($input =~ m{bash$lr}i) {
       push (@retval, @{transform_bash($input)});
    }
-   if ($input =~ m{qdb://}i) {
-      push (@retval, @{transform_qdb($input)});
-   }
-   if ($input =~ m{xkcdb://}i) {
+   if ($input =~ m{(qdb|xkcdb)$lr}i) {
       push (@retval, @{transform_qdb($input)});
    }
    
@@ -151,8 +154,8 @@ sub transform {
 #              $base_url = the beginning of the url to return
 #              
 # Description  Attempts to transform the input into a link. This is very generic.
-#              It makes sure the $input has $tag in it, followed, somewhere, by '://'
-#              it grabs everything after the last '://', uri encodes it, and appends it
+#              It makes sure the $input has $tag in it, followed, somewhere, by '://' or ',..'
+#              it grabs everything after the last '://' (or ',..'), uri encodes it, and appends it
 #              to $base_url
 #              
 # Returns      a reference to a list of strings
@@ -164,7 +167,7 @@ sub transform_link {
    
    my @retval = ();
     
-   if ($input =~ m{$tag.*://(.*)$}igx) {
+   if ($input =~ m{$tag.*$lr(.*)$}igx) {
       my $search = $1;
       $search =~ s/^\s+//;
       $search =~ s/\s+$//;
@@ -187,11 +190,11 @@ sub transform_link {
 sub transform_trope {
    my $input = shift;
    my $tag = 'trope';
-   my $base_url = 'http://tvtropes.org/pmwiki/pmwiki.php/Main/';
+   my $base_url = 'https://tvtropes.org/pmwiki/pmwiki.php/Main/';
    
    my @retval = ();
     
-   if ($input =~ m{$tag.*://(.*)$}igx) {
+   if ($input =~ m{$tag.*$lr(.*)$}igx) {
       my $search = $1;
       #get rid of anything that's not a letter, number or space
       $search =~ s/[^a-zA-Z0-9 ]//g;
@@ -209,9 +212,11 @@ sub transform_trope {
 
 ##############################################################
 # Sub          transform_xkcd
-# Usage        my $output_list_ref = transform_xkcd($input);
+# Usage        my $output_list_ref = transform_xkcd($input, $mobile_flag);
 #              
 # Parameters   $input = the string that you wish to transform
+#              $mobile_flag = an optional flag. If set to true, mobile links will
+#                             be used instead of the standard ones.
 #              
 # Description  Attempts to transform the input into a xkcd comic links
 #              
@@ -219,22 +224,24 @@ sub transform_trope {
 ##############################################################
 sub transform_xkcd {
    my $input = shift;
+   my $mobile_flag = shift;
    my $tag = 'xkcd';
    
    my @retval = ();
-    
-   if ($input =~ m{$tag.*://(.*)$}igx) {
+
+   if ($input =~ m{$tag.*$lr(.*)$}igx) {
       my $search = $1;
       #If it's only numbers, return the link to that numbered comic
       if ($search =~ /^\d+(?:\s+\d+)*$/) {
+         my $base_url = $mobile_flag ? 'https://m.xkcd.com/' : 'https://xkcd.com/';
          #split it by numbers, and add a link to each
          foreach my $num (split(/\s+/, $search)) {
-            push (@retval, 'http://xkcd.com/'.$num.'/');
+            push (@retval, $base_url.$num.'/');
          }
       }
       else {
          #return a link to the google search page for xkcd.
-         my $action = 'http://www.google.com/cse';
+         my $action = 'https://www.google.com/cse';
          my %params = (
             cx => '012652707207066138651:zudjtuwe28q',
             ie => 'UTF-8',
@@ -269,15 +276,16 @@ sub transform_bash {
    
    my @retval = ();
    
-   if ($input =~ m{bash.*://(.*)$}igx) {
+   if ($input =~ m{bash.*$lr(.*)$}igx) {
       my $search = $1;
       $search =~ s/^\s+//;
       $search =~ s/\s+$//;
+      my $base_url = 'http://www.bash.org/'; #As of September 11, 2018, https wasn't yet an option for this site.
       if ($search =~ m{^\d+$}) {
-         push (@retval, 'http://www.bash.org/?quote='.$search);
+         push (@retval, $base_url.'?quote='.$search);
       }
       else {
-         push (@retval, 'http://www.bash.org/?sort=0&show=25&search='.$search);
+         push (@retval, $base_url.'?sort=0&show=25&search='.$search);
       }
    }
    
@@ -299,15 +307,16 @@ sub transform_qdb {
    
    my @retval = ();
    
-   if ($input =~ m{(?:qdb|xkcdb).*://(.*)$}igx) {
+   if ($input =~ m{(?:qdb|xkcdb).*$lr(.*)$}igx) {
       my $search = $1;
       $search =~ s/^\s+//;
       $search =~ s/\s+$//;
+      my $base_url = 'http://xkcdb.com/'; #As of September 11, 2018, https wasn't yet an option for this site.
       if ($search =~ m{^\d+$}) {
-         push (@retval, 'http://www.xkcdb.com/?'.$search);
+         push (@retval, $base_url.$search);
       }
       else {
-         push (@retval, 'http://www.xkcdb.com/?search='.$search);
+         push (@retval, $base_url.'?search='.$search);
       }
    }
    
@@ -474,19 +483,21 @@ sub transform_yes_no {
    
    my @retval = ();
    
-   my @possibilities = (
-      'Yes', 'Probably', 'Sure', 'Definitely',
-      'No',  'Absolutely not!', 'Nope',
-      'Maybe', 'Possibly', '42', 'Sort of',
+   my @positive_answers = ('Yes', 'Probably', 'Sure', 'Definitely');
+   my @negative_answers = ('No',  'Absolutely not!', 'Nope');
+   my @neutral_answers = ('Maybe', 'Possibly', 'Sort of');
+   my @silly_answers = (
+      'Rub your belly three times and ask again.',
+      'Light some candles and ask again.',
+      '42',
    );
    
-   if (int(rand(10)) == 1) {
-      #10% chance to add this one to the possibilities
-      push (@possibilities, 
-            'Rub your belly three times and ask again.',
-            'Light some candles and ask again.',
-      );
-   }
+   my @possibilities = (
+      (@positive_answers) x 10,
+      (@negative_answers) x 10,
+      (@neutral_answers) x 3,
+      (@silly_answers) x 1,
+   );
    
    if ($input =~ m{\?\s*$}) {
       if ($input =~ m{^(?:how|why|what|who|when|where)}i) {
