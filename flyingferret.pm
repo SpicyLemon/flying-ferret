@@ -90,18 +90,10 @@ sub transform {
       
    my @retval = ();
    
-   my $lmgtfy_flag = 0;
-   
    #first, look for standard links
    foreach my $k (keys %links) {
       if ($input =~ m{$k$lr}i) {
-         my @new_lines = @{transform_link($input, $k, $links{$k})};
-         if ($#new_lines >= 0) {
-            push (@retval, @new_lines);
-            if ($k eq 'lmgtfy') {
-               $lmgtfy_flag = 1;
-            }
-         }
+         push (@retval, @{transform_link($input, $k, $links{$k})});
       }
    }
    #Now look for the links that need a little special attention
@@ -133,12 +125,6 @@ sub transform {
    #lastly, check for a question mark at the end of the line
    elsif ($input =~ m{\?\s*$}i) {
       push (@retval, @{transform_yes_no($input)});
-   }
-   
-   #add a nice message if all we've got is a lmgtfy flag
-   if ($lmgtfy_flag && $#retval == 0) {
-      push (@retval, 'You are not being automatically redirected since you '.
-                     'probably just want this link to give to someone else.');
    }
    
    return \@retval;
