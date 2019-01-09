@@ -122,6 +122,10 @@ sub transform {
    elsif ($input =~ m{d\d}i) {   #matches digit, 'd', digit
       push (@retval, @{transform_rolls($input)});
    }
+   #check for "roll pigs"
+   elsif ($input =~ m{^\s*roll\s+pigs\s*$}i) {
+      push (@retval, @{transform_roll_pigs()});
+   }
    #lastly, check for a question mark at the end of the line
    elsif ($input =~ m{\?\s*$}i) {
       push (@retval, @{transform_yes_no($input)});
@@ -415,6 +419,89 @@ sub roll_dice {
    }
    
    return ($total, $string);
+}
+
+my $SIDE_LEFT = "Side - Left";
+my $SIDE_RIGHT = "Side - Right";
+my $TROTTER = "Trotter";
+my $RAZORBACK = "Razorback";
+my $SNOUTER = "Snouter";
+my $LEANING_JOWLER = "Leaning Jowler";
+
+##############################################################
+# Sub          transform_roll_pigs
+# Usage        my $output_list_ref = transform_roll_pigs();
+#              
+# Parameters   (none)
+#              
+# Description  Rolls some pigs!
+#              
+# Returns      a reference to a list of strings
+##############################################################
+sub transform_roll_pigs {
+
+   my $retval = "";
+
+   if (int(rand(500)) == 0) {
+      $retval = "They're touching! You're back to zero points. Pass the pigs.";
+   }
+   else {
+      my %score_table = (
+         $SIDE_LEFT      => { $SIDE_LEFT =>  1, $SIDE_RIGHT =>  0, $TROTTER =>  5, $RAZORBACK =>  5, $SNOUTER => 10, $LEANING_JOWLER => 15 },
+         $SIDE_RIGHT     => { $SIDE_LEFT =>  0, $SIDE_RIGHT =>  1, $TROTTER =>  5, $RAZORBACK =>  5, $SNOUTER => 10, $LEANING_JOWLER => 15 },
+         $TROTTER        => { $SIDE_LEFT =>  5, $SIDE_RIGHT =>  5, $TROTTER => 20, $RAZORBACK => 10, $SNOUTER => 15, $LEANING_JOWLER => 20 },
+         $RAZORBACK      => { $SIDE_LEFT =>  5, $SIDE_RIGHT =>  5, $TROTTER => 10, $RAZORBACK => 20, $SNOUTER => 15, $LEANING_JOWLER => 20 },
+         $SNOUTER        => { $SIDE_LEFT => 10, $SIDE_RIGHT => 10, $TROTTER => 15, $RAZORBACK => 15, $SNOUTER => 40, $LEANING_JOWLER => 25 },
+         $LEANING_JOWLER => { $SIDE_LEFT => 15, $SIDE_RIGHT => 15, $TROTTER => 20, $RAZORBACK => 20, $SNOUTER => 25, $LEANING_JOWLER => 60 },
+      );
+
+      my $pig1 = roll_pig();
+      my $pig2 = roll_pig();
+
+      my $points = $score_table{$pig1}->{$pig2};
+
+      if ($points == 0) {
+         $retval = 'Oinker.  No points for you this round.  Pass the pigs.';
+      }
+      else {
+         my $position = $pig1 eq $pig2 ? $pig1 =~ m{Side} ? 'Sider.'
+                                       : 'Double '.$pig1.'!'
+                      : $pig1.' and '.$pig2.'.';
+
+         $retval = 'You got a '.$position.' '.$points.' point'.($points == 1 ? '' : 's').'.';
+      }
+   }
+
+   return [$retval];
+}
+
+##############################################################
+# Sub          roll_pig
+# Usage        my $result = roll_pig();
+#              
+# Parameters   (none)
+#              
+# Description  Rolls a single pig
+#              
+# Returns      The position that it lands in
+##############################################################
+sub roll_pig {
+   #Source: https://www.tandfonline.com/doi/full/10.1080/10691898.2006.11910593
+   #Odds:  Side - Right (no dot) : 34.97  Threshold: 3497
+   #      Side - Left (with dot) : 30.17             6514
+   #                   Razorback : 22.37             8751
+   #                     Trotter :  8.84             9635
+   #                     Snouter :  3.04             9939
+   #              Leaning Jowler :  0.61            10000
+   my $rval = int(rand(10000));
+
+   return $rval < 3497 ? $SIDE_RIGHT
+        : $rval < 6514 ? $SIDE_LEFT
+        : $rval < 8751 ? $RAZORBACK
+        : $rval < 9635 ? $TROTTER
+        : $rval < 9939 ? $SNOUTER
+        : $rval < 10000 ? $LEANING_JOWLER
+        : "Invalid"
 }
 
 ##############################################################
