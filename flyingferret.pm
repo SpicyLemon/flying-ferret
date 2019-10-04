@@ -7,8 +7,8 @@ package flyingferret;
 # Date:        June 29, 2010
 #              
 # Description: This module is used to transform input into links, rolls, and decisions etc..
-#              It is inspired by the flyingferret bot found in the xkcd irc channel, 
-#              #xkcd on irc.foonetic.net.
+#              It is inspired by the flyingferret bot once spotted in the xkcd irc channel, 
+#              #xkcd on irc.slashnet.org.
 #              The documentation for that bot can be found here:
 #              http://www.chiliahedron.com/ferret/
 #              
