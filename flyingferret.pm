@@ -21,7 +21,7 @@ package flyingferret;
 use strict;
 use warnings;
 use URI::Escape;        #imports uri_escape
-use List::Util 'shuffle';
+use List::Util qw(shuffle);
 
 our (@ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
 BEGIN {
@@ -116,6 +116,10 @@ sub transform {
       #we're set, nothing to do here
    }
    #First look for the complex thing of getting stuff from a list of stuff.
+   # Optional "select" "get" or "give me" <count> optional "random" <thing type> optional "from in of" <things>
+   # Examples:
+   #  Give me 3 random names from Danny, George, Lynne, Mike, Sam, Paul, Josh
+   #  10 numbers 1-100
    elsif ($input =~ m{^\s*(?:(?:select|get|give me)\s+)?(\d+)\s+(?:(?:random)\s+)?(\w+.*?)\s+(?:(?:from|in|of)\s+)?(.*)\.?\s*$}i) {
       my $count = $1;
       my $thing_type = $2;
@@ -664,27 +668,39 @@ sub get_possible_numbers {
 
    my @retval = ();
 
+   # Look for "up to <number>" entries.
+   # Note: This is just shorthand for "1 to <number>" so we don't need to worry about the number being negative.
    if ($description =~ m{^up\s+to\s+(\d+)$}i) {
       my $stop = $1;
       if ($stop >= 1) {
          push(@retval, 1 .. $stop);
       }
    }
+   # Okay, check for <number> [ [<delimiter] <number> ...]
+   # Examples:
+   #     "-1, -2, -3"
+   #     "1 to 100"
+   #     "3:99, 105,110-115 -10-10"
    elsif ($description =~ m{^(?:-?\d+)(?:\s*(?:,|-|to|:|\.\.|\s)?\s*(?:-?\d+))*$}) {
-      $description =~ s{\s*,\s*}{,}g;
-      $description =~ s{\s*(?:-|to|:|\.\.)\s*}{:}g;
-      $description =~ s{\s+}{,}g;
+      $description =~ s{\s*,\s*}{,}g;                   # Get rid of spaces around commas
+      $description =~ s{\s*(?:to|:|\.\.)\s*}{:}g;       # Get rid of spaces around span delimiters (except -), and turn them all into :
+      $description =~ s{\s*-\s*}{-}g;                   # Get rid of spaces around -.
+      $description =~ s{(\d)-}{$1:}g;                   # If a digit is followed by a -, change the - to a :
+      $description =~ s{\s+}{,}g;                       # Turn all one-or-more spaces into a comma
+      # Split on the commas because they now represent each separate entry to look at
       foreach my $entry (split(',', $description)) {
+         # If the entry is a range, add the whole range to the return value
          if ($entry =~ m{^(-?\d+):(-?\d+)$}) {
             push(@retval, @{get_number_range($1, $2)});
          }
+         # If the entry is just a number, just add it.
          elsif ($entry =~ m{^(-?\d+)$}) {
             push(@retval, $1);
          }
       }
    }
 
-   return \@retval;
+   return unique(\@retval);
 }
 
 ##############################################################
@@ -758,6 +774,31 @@ sub get_random_elements_from {
       push(@retval, @unsorted[0..($count-1)]);
    }
 
+   return \@retval;
+}
+
+##############################################################
+# Sub          unique
+# Usage        my $output_list_ref = unique(\@list);
+#
+# Parameters   @list = the list of things to make unique.
+#
+# Description  Gets a list of items without duplicates.
+#              Order of the original list is maintained, except only the first instance
+#              of an entry will be in the returned list ref.
+#
+# Returns      a reference to a list
+##############################################################
+sub unique {
+   my $input = shift;
+   my %seen;
+   my @retval;
+   for my $entry (@$input) {
+      if (!$seen{$entry}) {
+         $seen{$entry} = 1;
+         push (@retval, $entry);
+      }
+   }
    return \@retval;
 }
 
