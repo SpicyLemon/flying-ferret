@@ -1,5 +1,7 @@
-# Contents:
-#   ask  ---------------------> Asks flying ferret a question. 
+#!/bin/bash
+# This file contains functions for asking questions of flying-ferret.
+# File contents:
+#   ask  ---------------------> Asks flying ferret a question.
 #                                   If Perl is available on your system, and the flyingferret module is in @INC, that will be used.
 #                                   Otherwise, an attempt to call the web api will be made.
 #   ask_flying_ferret_perl  --> Uses your local perl library to ask flying ferret a question.
@@ -15,8 +17,14 @@
 #       $ ask 'should I go to bed?'
 #
 # Usage Notes:
-#   1. Some shells see the '?' and try to do stuff with it, so you might need to put the whole question in quotes. 
+#   1. Some shells see the '?' and try to do stuff with it, so you might need to put the whole question in quotes.
 #   2. In order for the web api call to work, you might have to install the jq program. It's a json querying command-line utility.
+
+# Determine if this script was invoked by being executed or sourced.
+( [[ -n "$ZSH_EVAL_CONTEXT" && "$ZSH_EVAL_CONTEXT" =~ :file$ ]] \
+  || [[ -n "$KSH_VERSION" && $(cd "$(dirname -- "$0")" && printf '%s' "${PWD%/}/")$(basename -- "$0") != "${.sh.file}" ]] \
+  || [[ -n "$BASH_VERSION" ]] && (return 0 2>/dev/null) \
+) && sourced='YES' || sourced='NO'
 
 # Usage: ask should I stay or should I go?
 ask () {
@@ -59,3 +67,11 @@ ask_flying_ferret_api () {
     echo -E "$results"
     return 0
 }
+
+if [[ "$sourced" != 'YES' ]]; then
+    if [[ "$#" -gt '1' ]]; then
+        ask "$@"
+    else
+        echo -E "Usage: ./$( basename "$0" ) <flying ferret query>"
+    fi
+fi
