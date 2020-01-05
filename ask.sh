@@ -28,6 +28,10 @@
 
 # Usage: ask should I stay or should I go?
 ask () {
+    if [[ "$#" -eq '1' && (( "$1" == '-o' || "$1" == '--open' )) ]]; then
+        open "https://flying-ferret.com"
+        return 0
+    fi
     local can_perl cant_perl_ff
     can_perl="$( type perl | grep -v 'not found' )"
     if [[ -n "$can_perl" ]]; then
@@ -69,7 +73,7 @@ ask_flying_ferret_api () {
 }
 
 if [[ "$sourced" != 'YES' ]]; then
-    if [[ "$#" -gt '1' ]]; then
+    if [[ "$#" -gt '0' ]]; then
         ask "$@"
     else
         echo -E "Usage: ./$( basename "$0" ) <flying ferret query>"
