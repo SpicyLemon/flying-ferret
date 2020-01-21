@@ -18,7 +18,9 @@
 #
 # Usage Notes:
 #   1. Some shells see the '?' and try to do stuff with it, so you might need to put the whole question in quotes.
-#   2. In order for the web api call to work, you might have to install the jq program. It's a json querying command-line utility.
+#   2. In order for the perl module to be used, the flyingferret perl module must be in your standard perl path.
+#   3. In order for the web api call to work, you might have to install the jq program. It's a json querying command-line utility.
+#   4. The flyingferret perl module will be used if possible. Otherewise the api call will be attempted.
 
 # Determine if this script was invoked by being executed or sourced.
 ( [[ -n "$ZSH_EVAL_CONTEXT" && "$ZSH_EVAL_CONTEXT" =~ :file$ ]] \
