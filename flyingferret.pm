@@ -6,7 +6,7 @@ package flyingferret;
 # Author:      Danny Wedul
 # Date:        June 29, 2010
 #
-# Description: This module is used to transform input into links, rolls, and decisions etc..
+# Description: This module is used to transform input into rolls, and decisions.
 #              It is inspired by the flyingferret bot once spotted in the xkcd irc channel,
 #              #xkcd now on irc.slashnet.org.
 #
@@ -16,11 +16,11 @@ package flyingferret;
 #                                  Allow ,.. to be used as a replacement for ://
 #              January 9, 2019: Add ability to roll pigs.
 #              November 17, 2018: Add ability to get x random elements of a list.
+#              March 13, 2021: Remove link generation.
 #
 ################################################################################
 use strict;
 use warnings;
-use URI::Escape;        #imports uri_escape
 use List::Util qw(shuffle);
 
 our (@ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
@@ -31,44 +31,12 @@ BEGIN {
    our @EXPORT_OK = qw(transform);
 }
 
-#Any searches that just need to be uri encoded and appended
-#to a search uri can be added to this list.
-my %standard_links = (
-   google => 'https://www.google.com/search?q=',
-   bing   => 'https://www.bing.com/search?q=',
-   imdb   => 'https://www.imdb.com/find?s=all&q=',
-   wiki   => 'https://en.wikipedia.org/wiki/',
-   alpha  => 'https://www.wolframalpha.com/input/?i=',
-   image  => 'https://www.google.com/images?q=',
-   gimage => 'https://www.google.com/images?q=',
-   bimage => 'https://www.bing.com/images/search?q=',
-   imgur  => 'https://imgur.com/?q=',
-   giffy  => 'https://giphy.com/search/',
-   amazon => 'https://www.amazon.com/s/ref=nb_sb_noss?url=search-alias%3Daps&field-keywords=',
-   ebay   => 'https://shop.ebay.com/?_nkw=',
-   lmgtfy => 'https://lmgtfy.com/?q=',
-);
-
-#If there is a special mobile link for a search in the standard links hash, you can
-#add that information here.  If a mobile link is asked for, and there isn't an entry
-#in this hash, it will use the link defined in the standard links hash.
-my %mobile_links = (
-   imdb   => 'https://m.imdb.com/find?q=',
-   alpha  => 'https://m.wolframalpha.com/input/?i=',
-);
-
-#variable name is short for "link regex".
-#This is used in the regexes that test to see if users want links created.
-my $lr = qr^(?:://|,\.\.)^;
-
 
 ##############################################################
 # Sub          transform
-# Usage        my $output_list_ref = flyingferret::transform($input, $mobile_flag);
+# Usage        my $output_list_ref = flyingferret::transform($input);
 #
 # Parameters   $input = the string that you wish to transform
-#              $mobile_flag = an optional flag. If set to true, mobile links will
-#                             be used instead of the standard ones.
 #
 # Description  Processes input to do all stuff flyingferret should do
 #              This is pretty much the only sub that you should be calling
@@ -78,248 +46,41 @@ my $lr = qr^(?:://|,\.\.)^;
 ##############################################################
 sub transform {
    my $input = shift || '';
-   my $mobile_flag = shift || '';
-
-   #set up the links to use
-   my %links = ();
-   foreach my $k (keys %standard_links) {
-      $links{$k} = ($mobile_flag && $mobile_links{$k})
-                 ? $mobile_links{$k}
-                 : $standard_links{$k}
-                ;
-   }
+   #Remove leading and trailing whitespace
+   $input =~ s/^\s+//;
+   $input =~ s/\s+$//;
 
    my @retval = ();
 
-   #first, look for standard links
-   foreach my $k (keys %links) {
-      if ($input =~ m{$k$lr}i) {
-         push (@retval, @{transform_link($input, $k, $links{$k})});
-      }
-   }
-   #Now look for the links that need a little special attention
-   if ($input =~ m{xkcd$lr}i) {
-      push (@retval, @{transform_xkcd($input, $mobile_flag)});
-   }
-   if ($input =~ m{trope$lr}i) {
-      push (@retval, @{transform_trope($input)});
-   }
-   if ($input =~ m{bash$lr}i) {
-      push (@retval, @{transform_bash($input)});
-   }
-   if ($input =~ m{(qdb|xkcdb)$lr}i) {
-      push (@retval, @{transform_qdb($input)});
-   }
-
-   #now, if we don't have anything yet, check for the other stuff
-   if ($#retval >= 0) {
-      #we're set, nothing to do here
-   }
    #First look for the complex thing of getting stuff from a list of stuff.
-   # Optional "select" "get" or "give me" <count> optional "random" <thing type> optional "from in of" <things>
+   # Optional("select" "get" or "give me") <count> optional("random") <thing type> optionali("from" "in" or "of") <things>
    # Examples:
    #  Give me 3 random names from Danny, George, Lynne, Mike, Sam, Paul, Josh
    #  10 numbers 1-100
-   elsif ($input =~ m{^\s*(?:(?:select|get|give me)\s+)?(\d+)\s+(?:(?:random)\s+)?(\w+.*?)\s+(?:(?:from|in|of)\s+)?(.*)\.?\s*$}i) {
+   if ($input =~ m{^(?:(?:select|get|give me)\s+)?(\d+)\s+(?:(?:random)\s+)?(\w+.*?)\s+(?:(?:from|in|of)\s+)?(.*)\.?$}i) {
       my $count = $1;
       my $thing_type = $2;
       my $things = $3;
       push (@retval, @{transform_get_elements_from_list($input, $count, $thing_type, $things)})
    }
    #check for 'or'
+   # Examples:
+   #  Pizza or Tacos?
+   #  Go to bed or find food or watch TV?
    elsif ($input =~ m{\bor\b}i) {
       push (@retval, @{transform_or($input)});
+   }
+   #check for "roll pigs"
+   elsif ($input =~ m{^roll\s+pigs$}i) {
+      push (@retval, @{transform_roll_pigs()});
    }
    #check for rolls
    elsif ($input =~ m{d\d}i) {   #matches digit, 'd', digit
       push (@retval, @{transform_rolls($input)});
    }
-   #check for "roll pigs"
-   elsif ($input =~ m{^\s*roll\s+pigs\s*$}i) {
-      push (@retval, @{transform_roll_pigs()});
-   }
    #lastly, check for a question mark at the end of the line
-   elsif ($input =~ m{\?\s*$}i) {
+   elsif ($input =~ m{\?$}i) {
       push (@retval, @{transform_yes_no($input)});
-   }
-
-   return \@retval;
-}
-
-##############################################################
-# Sub          transform_link
-# Usage        my $output_list_ref = transform_link($input, $tag, $base_url);
-#
-# Parameters   $input = the string that you wish to transform
-#              $tag = the tag in the input signifying a link (i.e. 'google', 'qdb')
-#                    this is going in a regex, so it should probably be just letters.
-#              $base_url = the beginning of the url to return
-#
-# Description  Attempts to transform the input into a link. This is very generic.
-#              It makes sure the $input has $tag in it, followed, somewhere, by '://' or ',..'
-#              it grabs everything after the last '://' (or ',..'), uri encodes it, and appends it
-#              to $base_url
-#
-# Returns      a reference to a list of strings
-##############################################################
-sub transform_link {
-   my $input = shift;
-   my $tag = shift;
-   my $base_url = shift;
-
-   my @retval = ();
-
-   if ($input =~ m{$tag.*$lr(.*)$}igx) {
-      my $search = $1;
-      $search =~ s/^\s+//;
-      $search =~ s/\s+$//;
-      push (@retval, $base_url.uri_escape($search));
-   }
-
-   return \@retval;
-}
-
-##############################################################
-# Sub          transform_trope
-# Usage        my $output_list_ref = transform_trope($input);
-#
-# Parameters   $input = the string that you wish to transform
-#
-# Description  Attempts to transform the input into a TV Tropes link
-#
-# Returns      a reference to a list of strings
-##############################################################
-sub transform_trope {
-   my $input = shift;
-   my $tag = 'trope';
-   my $base_url = 'https://tvtropes.org/pmwiki/pmwiki.php/Main/';
-
-   my @retval = ();
-
-   if ($input =~ m{$tag.*$lr(.*)$}igx) {
-      my $search = $1;
-      #get rid of anything that's not a letter, number or space
-      $search =~ s/[^a-zA-Z0-9 ]//g;
-      my $trope = '';
-      #split it by word, capitalize the first letter and lowercase the rest
-      foreach my $word (split(/\s+/, $search)) {
-         $word =~ s{^(\w)(\w*)$}{\u$1\L$2};
-         $trope .= $word;
-      }
-      push (@retval, $base_url.uri_escape($trope));
-   }
-
-   return \@retval;
-}
-
-##############################################################
-# Sub          transform_xkcd
-# Usage        my $output_list_ref = transform_xkcd($input, $mobile_flag);
-#
-# Parameters   $input = the string that you wish to transform
-#              $mobile_flag = an optional flag. If set to true, mobile links will
-#                             be used instead of the standard ones.
-#
-# Description  Attempts to transform the input into a xkcd comic links
-#
-# Returns      a reference to a list of strings
-##############################################################
-sub transform_xkcd {
-   my $input = shift;
-   my $mobile_flag = shift;
-   my $tag = 'xkcd';
-
-   my @retval = ();
-
-   if ($input =~ m{$tag.*$lr(.*)$}igx) {
-      my $search = $1;
-      #If it's only numbers, return the link to that numbered comic
-      if ($search =~ /^\d+(?:\s+\d+)*$/) {
-         my $base_url = $mobile_flag ? 'https://m.xkcd.com/' : 'https://xkcd.com/';
-         #split it by numbers, and add a link to each
-         foreach my $num (split(/\s+/, $search)) {
-            push (@retval, $base_url.$num.'/');
-         }
-      }
-      else {
-         #return a link to the google search page for xkcd.
-         my $action = 'https://www.google.com/cse';
-         my %params = (
-            cx => '012652707207066138651:zudjtuwe28q',
-            ie => 'UTF-8',
-            siteurl => 'www.xkcd.com/',
-            q  => $search,
-         );
-         my @pairs = ();
-         foreach my $k (keys %params) {
-            push (@pairs, $k.'='.uri_escape($params{$k}));
-         }
-         my $google_url = $action.'?'.join('&', @pairs);
-         push (@retval, $google_url);
-      }
-   }
-
-   return \@retval;
-}
-
-##############################################################
-# Sub          transform_bash
-# Usage        my $output_list_ref = transform_bash($input);
-#
-# Parameters   $input = the string that you wish to transform
-#
-# Description  Attempts to transform the input into a bash.org
-#              quote link
-#
-# Returns      a reference to a list of strings
-##############################################################
-sub transform_bash {
-   my $input = shift;
-
-   my @retval = ();
-
-   if ($input =~ m{bash.*$lr(.*)$}igx) {
-      my $search = $1;
-      $search =~ s/^\s+//;
-      $search =~ s/\s+$//;
-      my $base_url = 'http://www.bash.org/'; #As of September 11, 2018, https wasn't yet an option for this site.
-      if ($search =~ m{^\d+$}) {
-         push (@retval, $base_url.'?quote='.$search);
-      }
-      else {
-         push (@retval, $base_url.'?sort=0&show=25&search='.$search);
-      }
-   }
-
-   return \@retval;
-}
-
-##############################################################
-# Sub          transform_qdb
-# Usage        my $output_list_ref = transform_qdb($input);
-#
-# Parameters   $input = the string that you wish to transform
-#
-# Description  Attempts to transform the input into a xkcdb link
-#
-# Returns      a reference to a list of strings
-##############################################################
-sub transform_qdb {
-   my $input = shift;
-
-   my @retval = ();
-
-   if ($input =~ m{(?:qdb|xkcdb).*$lr(.*)$}igx) {
-      my $search = $1;
-      $search =~ s/^\s+//;
-      $search =~ s/\s+$//;
-      my $base_url = 'http://xkcdb.com/'; #As of September 11, 2018, https wasn't yet an option for this site.
-      if ($search =~ m{^\d+$}) {
-         push (@retval, $base_url.$search);
-      }
-      else {
-         push (@retval, $base_url.'?search='.$search);
-      }
    }
 
    return \@retval;
