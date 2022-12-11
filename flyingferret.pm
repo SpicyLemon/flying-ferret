@@ -57,11 +57,12 @@ sub transform {
    # Examples:
    #  Give me 3 random names from Danny, George, Lynne, Mike, Sam, Paul, Josh
    #  10 numbers 1-100
-   if ($input =~ m{^(?:(?:select|get|give me)\s+)?(\d+)\s+(?:(?:random)\s+)?(\w+.*?)\s+(?:(?:from|in|of)\s+)?(.*)\.?$}i) {
+   if ($input =~ m{^(?:(?:select|get|give me)\s+)?(\d+)\s+(?:(?:random)\s+)?(\w+.*?)\s+(?:(?:from|in|of)\s+)?(.*?)( (?:without|w/?o|no|don't) (?:re-?)?sort)?\.?$}i) {
       my $count = $1;
       my $thing_type = $2;
       my $things = $3;
-      push (@retval, @{transform_get_elements_from_list($input, $count, $thing_type, $things)})
+      my $no_sort = $4;
+      push (@retval, @{transform_get_elements_from_list($input, $count, $thing_type, $things, $no_sort)});
    }
    #check for 'or'
    # Examples:
@@ -375,6 +376,7 @@ sub transform_get_elements_from_list {
    my $count = shift;
    my $thing_type = shift;
    my $things = shift;
+   my $no_sort = shift;
 
    my @lucky_picks = ();
    my $sorter = undef;
@@ -405,7 +407,7 @@ sub transform_get_elements_from_list {
          if (! defined $sorter) {
             $sorter = sub { lc($a) cmp lc($b) };
          }
-         my @ordered_picks = sort($sorter @lucky_picks);
+         my @ordered_picks = (defined $no_sort) ? @lucky_picks : sort($sorter @lucky_picks);
          $retval = join(', ', @ordered_picks[0..$#ordered_picks-1]) . ' and ' . $ordered_picks[-1];
       }
    }
@@ -524,14 +526,15 @@ sub get_random_elements_from {
 
    my @retval = ();
 
+   my @unsorted = shuffle(@$things);
+
    if ($count == $things_length) {
-      push(@retval, @$things);
+      push(@retval, @unsorted);
    }
    elsif ($count == 1 && $things_length > 1) {
-      push(@retval, $things->[int(rand($things_length))]);
+      push(@retval, $unsorted[0])
    }
    elsif ($count > 1 && $count < $things_length) {
-      my @unsorted = shuffle(@$things);
       push(@retval, @unsorted[0..($count-1)]);
    }
 
